@@ -3,44 +3,19 @@
     <div class="bilet-variante">
       <div v-for="n in numarVariante" :key="n" :class="['varianta']">
         <span style="font-size: var(--font-size-small); color:var(--color-text-primary);">{{getVariantKey(n)}}</span>
-        <NumberGrid 
-          :key="getVariantKey(n)"
-          :minValue="minNumarVarianta"
-          :maxValue="maxNumarVarianta"
-          :colCount="columnCountGridVarianta"
-          :maxSelectionCount="maxSelectionCountVarianta"
-          v-model:selectedNumbers="selectedNumbers[n-1]"
-          :highlightedNumbers="matchingNumbers[n-1] || []"
-          :styling="{
-            selected: {
-              borderColor: 'var(--color-main)',
-              backgroundColor: 'var(--color-main)',
-              textColor: 'var(--color-white)'
-            },
-            highlight: {
-              borderColor: 'var(--color-success-text)',
-              backgroundColor: 'var(--color-success-text)',
-              textColor: 'var(--color-white)'
-            }
-          }"
-        />
-        <div v-if="gameId === 'joker'" style="margin-left: 10px;">
+        <div class="varianta-grids">
           <NumberGrid 
-            :minValue="minNumarJoker"
-            :maxValue="maxNumarJoker"
-            :colCount="columnCountGridJoker"
-            :maxSelectionCount="maxSelectionCountJoker"
-            v-model:selectedNumbers="selectedJokerNumbers[n-1]"
-            :highlightedNumbers="matchingJokerNumbers[n-1] || []"
+            :key="getVariantKey(n)"
+            :minValue="minNumarVarianta"
+            :maxValue="maxNumarVarianta"
+            :colCount="gridColumnCount"
+            :maxSelectionCount="maxSelectionCountVarianta"
+            v-model:selectedNumbers="selectedNumbers[n-1]"
+            :highlightedNumbers="matchingNumbers[n-1] || []"
             :styling="{
-              regular: {
-                borderColor: 'var(--color-joker)',
-                backgroundColor: 'var(--color-white)',
-                textColor: 'var(--color-joker)'
-              },
               selected: {
-                borderColor: 'var(--color-joker)',
-                backgroundColor: 'var(--color-joker)',
+                borderColor: 'var(--color-main)',
+                backgroundColor: 'var(--color-main)',
                 textColor: 'var(--color-white)'
               },
               highlight: {
@@ -50,6 +25,33 @@
               }
             }"
           />
+          <div v-if="gameId === 'joker'">
+            <NumberGrid 
+              :minValue="minNumarJoker"
+              :maxValue="maxNumarJoker"
+              :colCount="gridColumnCount"
+              :maxSelectionCount="maxSelectionCountJoker"
+              v-model:selectedNumbers="selectedJokerNumbers[n-1]"
+              :highlightedNumbers="matchingJokerNumbers[n-1] || []"
+              :styling="{
+                regular: {
+                  borderColor: 'var(--color-joker)',
+                  backgroundColor: 'var(--color-white)',
+                  textColor: 'var(--color-joker)'
+                },
+                selected: {
+                  borderColor: 'var(--color-joker)',
+                  backgroundColor: 'var(--color-joker)',
+                  textColor: 'var(--color-white)'
+                },
+                highlight: {
+                  borderColor: 'var(--color-success-text)',
+                  backgroundColor: 'var(--color-success-text)',
+                  textColor: 'var(--color-white)'
+                }
+              }"
+            />
+          </div>
         </div>
       </div>
     </div>    
@@ -158,12 +160,10 @@ const norocLen = computed(() => props.game?.numar_cifre_noroc || 7)
 const numarVariante = computed(() =>  props.game?.numar_max_variante || 1)
 const minNumarVarianta = computed(() =>  props.game?.min_value_numar_varianta || 1)
 const maxNumarVarianta = computed(() =>  props.game?.max_value_numar_varianta || 49)
-const columnCountGridVarianta = computed( () => {
-  // if (gameId.value === 'joker') return 10;
+const gridColumnCount = computed( () => {
   return 10;
 })
 
-const columnCountGridJoker = computed (() => 5)
 const minNumarJoker = computed (() => 1)
 const maxNumarJoker = computed (() => 20)
 const maxSelectionCountVarianta = computed (() => maxNumarVarianta.value - 1)
@@ -232,11 +232,11 @@ function verificaBilet() {
   align-self: center;
 }
 
-.varianta-joker {
-  padding-top: 0px;
-  padding-left: 8px;
+.varianta-grids {
+  display: flex;
   flex-direction: column;
-  max-height: max-content;
+  gap: 8px;
+  padding-left: 8px;
 }
 
 .varianta-joker span {
