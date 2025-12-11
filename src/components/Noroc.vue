@@ -79,7 +79,7 @@ defineExpose({
 
 .noroc-container {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   padding-left: 4px;
 }
