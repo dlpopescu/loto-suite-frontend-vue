@@ -67,12 +67,12 @@ defineExpose({
 })
 
 import { computed, ref, watch } from 'vue'
-import { useLotoStore } from '../stores/loto_store'
+import { useBusinessStore } from '../stores/business_store'
 import NumberGrid from './NumberGrid.vue'
 
-const lotoStore = useLotoStore()
+const businessStore = useBusinessStore()
 
-const selectedGame = computed(() => lotoStore.selectedGame || {})
+const selectedGame = computed(() => businessStore.selectedGame || {})
 const isJokerGame = computed(() => selectedGame.value.id === 'joker')
 const minNumarVarianta = computed(() =>  selectedGame.value.min_value_numar_varianta || 1)
 const maxNumarVarianta = computed(() =>  selectedGame.value.max_value_numar_varianta || 49)

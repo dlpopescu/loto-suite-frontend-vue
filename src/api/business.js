@@ -1,36 +1,5 @@
-
-// API_BASE configured for production backend
-const API_BASE = 'https://dlpopescu.ro';
-
-let jwtToken = null;
-
-export async function Login(user, password) {
-    console.log('Found JWT token: ' + jwtToken);
-    if (jwtToken) return;
-
-    const response = await send(
-        'POST', 
-        `${API_BASE}/api/login`, 
-        JSON.stringify({ username: user, password: btoa(password) }), 
-        // JSON.stringify({ username: 'dlpopescu', password: btoa('o:mK!4*yR0Os`C3\'') }), 
-        { 'Content-Type': 'application/json' }, 
-        false);
-
-    if (!response.ok) throw new Error('Login failed');
-    const tokenData = await response.json();
-    jwtToken = tokenData.data.token;
-
-    return response;
-}
-
-function arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-}
+import {arrayBufferToBase64, send} from './utils.js';
+import {API_BASE} from './utils.js';
 
 export async function getAllGames() {
     const response = await send(
@@ -54,7 +23,7 @@ export async function getGameById(gameId) {
 export async function getDrawDates(daysBack) {
     const response = await send(
         'GET', 
-        `${API_BASE}/api/draw-dates?days_back=${daysBack}`, 
+        `${API_BASE}/api/draw/dates?days_back=${daysBack}`, 
         null, 
         {}, 
         true);
@@ -67,7 +36,7 @@ export async function getDrawDates(daysBack) {
 export async function getDrawResults(game, date) {
     const response = await send(
         'GET', 
-        `${API_BASE}/api/draw-results?game=${encodeURIComponent(game)}&date=${encodeURIComponent(date)}`, 
+        `${API_BASE}/api/draw/results?game=${encodeURIComponent(game)}&date=${encodeURIComponent(date)}`, 
         null, 
         {}, 
         true);
@@ -90,9 +59,11 @@ export async function checkNumbers(gameId, variante, noroc, date) {
             date: date
         });
 
+    console.log('Check numbers payload:', jsonPayload);
+
     const response = await send(
         'POST', 
-        `${API_BASE}/api/check`, 
+        `${API_BASE}/api/ticket/check`, 
         jsonPayload, 
         { 'Content-Type': 'application/json' }, 
         true);
@@ -105,13 +76,15 @@ export async function checkNumbers(gameId, variante, noroc, date) {
     const checkResultJson = await response.json();
     const checkResult = checkResultJson.data || checkResultJson;
     
+    console.log('Check numbers result:', checkResult);
+    
     return checkResult;
 }
 
 export async function scanTicket(gameId, imageData) {
     const response = await send(
         'POST', 
-        `${API_BASE}/api/scan`, 
+        `${API_BASE}/api/ticket/scan`, 
         JSON.stringify({ game_id: gameId, image_data: arrayBufferToBase64(imageData) }), 
         { 'Content-Type': 'application/json' }, 
         true);
@@ -121,23 +94,4 @@ export async function scanTicket(gameId, imageData) {
         throw new Error(error.error || 'Failed to scan ticket');
     }
     return await response.json();
-}
-
-async function send(method, url, body, extraHeaders, authenticate = true) {
-    const headers = { ...extraHeaders };
-
-    if (authenticate) {
-        headers['Authorization'] = `Bearer ${jwtToken}`;
-    }
-
-    console.log('Fetching from URL: ' + url);
-    const response = await fetch(url, {
-        method: method,
-        headers: headers,
-        body: body
-    });
-
-    console.log(`API ${method} ${url} responded with status ${response.status}`);
-
-    return response;
 }

@@ -8,7 +8,7 @@
         <tr>
           <td colspan="6">
             <SelectEx 
-              v-model="lotoStore.gameId" :dataSet="lotoStore.games" 
+              v-model="businessStore.gameId" :dataSet="businessStore.games" 
               keyProp="id" valueProp="id" displayProp="display_name"
               :emits="['game-changed']" @game-changed="onGameChanged"/>
           </td>
@@ -16,7 +16,7 @@
         <tr>
           <td colspan="6">
             <SelectEx 
-              v-model="lotoStore.dateId" :dataSet="lotoStore.dates" 
+              v-model="businessStore.dateId" :dataSet="businessStore.dates" 
               keyProp="date" valueProp="date" displayProp="label"
               :emits="['date-changed']" @date-changed="onDateChanged"/>
           </td>
@@ -34,7 +34,7 @@
         </tr>
       </tbody>
     </table> 
-    <Bilet v-if="lotoStore.gameId && hasDrawResults()"
+    <Bilet v-if="businessStore.gameId && hasDrawResults()"
       class="main-width"
       style="margin-top: 1px;"
       ref="biletRef"
@@ -50,21 +50,25 @@
       :castiguriVarianta="castiguriVarianta" 
       :castiguriVariantaSpeciala="castiguriVariantaSpeciala" 
       :castiguriNoroc="castiguriNoroc" 
-      :norocGameName="`${lotoStore.selectedGame.nume_noroc}`" /> 
+      :norocGameName="`${businessStore.selectedGame.nume_noroc}`" /> 
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import Bilet from './components/Bilet.vue'
 import Castiguri from './components/Castiguri.vue'
 import SelectEx from './components/SelectEx.vue'
-import { checkNumbers, getDrawResults, scanTicket } from './api/client.js'
+import { checkNumbers, getDrawResults, scanTicket } from './api/business.js'
 import { computed } from 'vue'
-import { useLotoStore } from './stores/loto_store.js'
+import { useBusinessStore } from './stores/business_store.js'
 import { normalizeNumber } from './utils/utils.js'
+import { useErrorStore } from './stores/error_store.js';
 
-const lotoStore = useLotoStore()
+const businessStore = useBusinessStore()
+const errorStore = useErrorStore();
+const route = useRoute();
 
 const biletRef = ref(null)
 const fileInputRef = ref(null)
@@ -79,8 +83,8 @@ const castiguriVarianta = ref([])
 const castiguriVariantaSpeciala = ref([])
 const castiguriNoroc = ref([])
 
-const isJokerGame = computed(() => lotoStore.gameId.toLowerCase() === 'joker')
-const norocGameName = computed(() => lotoStore.selectedGame?.nume_noroc || 'NOROC')
+const isJokerGame = computed(() => businessStore.gameId.toLowerCase() === 'joker')
+const norocGameName = computed(() => businessStore.selectedGame?.nume_noroc || 'NOROC')
 
 const hasRezultateVarianta = computed(() => drawResult.value?.varianta && drawResult.value.varianta.id !== -1)
 const numereExtraseVarianta = computed(() => {
@@ -104,9 +108,18 @@ const numereExtraseVariantaSpeciala = computed(() => {
 
 const hasCastiguriNoroc = computed (() => castiguriNoroc.value && castiguriNoroc.value.some(c => c.win_count > 0));
 
-// onMounted(async () => {
-//   await fetchDrawResults();
-// })
+onMounted(async () => {  
+  try{
+    if (route.query.from !== 'login') {
+      await businessStore.fetchGames();
+      await businessStore.fetchDates(30);
+    }
+
+    await fetchDrawResults();
+  } catch (err) {
+    errorStore.showError(err.message || 'Initialization error');
+  }
+})
 
 function deleteBilet() {
   scanResult.value = null;
@@ -154,10 +167,10 @@ async function checkBilet(data) {
     });
 
     const result = await checkNumbers(
-      lotoStore.gameId,
+      businessStore.gameId,
       checkData,
       data.noroc,
-      lotoStore.dateId
+      businessStore.dateId
     );
 
     console.log('Check result:', result);
@@ -221,7 +234,7 @@ function onFileChange(e) {
   reader.onload = async function(event) {
     const arrayBuffer = event.target.result;
     try {
-      const result = await scanTicket(lotoStore.gameId, arrayBuffer);
+      const result = await scanTicket(businessStore.gameId, arrayBuffer);
       console.log('Scan result: ', result);
       scanResult.value = result;
       norocValue.value = scanResult?.value.noroc?.numar || '';
@@ -252,15 +265,15 @@ async function onDateChanged() {
 }
 
 async function fetchDrawResults() {
-  const gameId = lotoStore.gameId.trim();
-  if (!gameId) return;
+    const gameId = businessStore.gameId.trim();
+    if (!gameId) return;
 
-  const dateId = lotoStore.dateId.trim();
-  if (!dateId) return;
+    const dateId = businessStore.dateId.trim();
+    if (!dateId) return;
 
   try {
+
     const result = await getDrawResults(gameId, dateId);
-    console.log('Draw results fetched:', result);
     
     const variantaLength = result.varianta?.numere?.length || 0;
     if (variantaLength > 0) {
@@ -288,7 +301,7 @@ async function fetchDrawResults() {
 
     drawResult.value = result;
   } catch (err) {
-    console.error('Failed to fetch draw results:', err);
+    errorStore.showError(err.message || 'Failed to fetch draw results');
   }
 }
 

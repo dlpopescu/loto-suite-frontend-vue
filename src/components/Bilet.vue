@@ -47,11 +47,11 @@
 <script setup>
   
 import { ref, computed, onMounted, watch } from 'vue'
-import { useLotoStore } from '../stores/loto_store'
+import { useBusinessStore } from '../stores/business_store'
 import { isFunction } from '../utils/utils'
 import Varianta from './Varianta.vue'
 
-const lotoStore = useLotoStore()
+const businessStore = useBusinessStore()
 const norocInputRef = ref(null)
 const ticketSelections = ref([])
 const norocCastigator = ref(false)
@@ -59,7 +59,7 @@ const varianteRefs = ref([]);
 // const matchingNumbers = ref([])
 // const matchingJokerNumbers = ref([])
 
-const selectedGame = computed(() => lotoStore.selectedGame || {})
+const selectedGame = computed(() => businessStore.selectedGame || {})
 const norocGameName = computed(() => selectedGame.value.nume_noroc || 'NOROC')
 const norocLen = computed(() => selectedGame.value.numar_cifre_noroc || 7)
 const numarVariante = computed(() =>  selectedGame.value.numar_max_variante || 1)
@@ -76,7 +76,7 @@ onMounted(() => {
   reset()
 })
 
-watch(() =>  lotoStore.gameId, (newGameId, oldGameId) => {
+watch(() =>  businessStore.gameId, (newGameId, oldGameId) => {
   if (newGameId && newGameId !== oldGameId) {
       reset()
     }
@@ -141,8 +141,6 @@ function doOnVariantSelectionsUpdated(selections) {
   } else {
     ticketSelections.value.push(selections);
   }
-
-  // console.log('Bilet selections updated:', ticketSelections.value);
 }
 
 </script>

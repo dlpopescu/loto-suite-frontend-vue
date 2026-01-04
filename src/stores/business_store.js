@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
-import { getAllGames, getDrawDates } from '../api/client'
+import { getAllGames, getDrawDates } from '../api/business'
 
-export const useLotoStore = defineStore('loto', {
+export const useBusinessStore = defineStore('loto', {
   state: () => ({
     games: [],
     dates: [],

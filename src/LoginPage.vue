@@ -18,28 +18,28 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Login } from './api/client.js';
-import { useLotoStore } from './stores/loto_store.js';
+import { loginUser } from './api/auth.js';
+import { useBusinessStore } from './stores/business_store.js';
 
 const username = ref('');
 const password = ref('');
 const loading = ref(false);
 const error = ref('');
 const router = useRouter();
-const lotoStore = useLotoStore();
+const businessStore = useBusinessStore();
 
 async function login() {
   loading.value = true;
   error.value = '';
   try {
-    const response = await Login(username.value, password.value);
-    if (!response.ok) throw new Error('Login failed');
+    const response = await loginUser(username.value, password.value);
+    if (!response.ok) throw new Error('Login failed. Please try again.');
 
-    await lotoStore.fetchGames();
-    await lotoStore.fetchDates(30);
-    router.replace({ name: 'ticket' });
+    await businessStore.fetchGames();
+    await businessStore.fetchDates(30);
+    router.replace({ name: 'ticket', query: { from: 'login' } });
   } catch (e) {
-    error.value = e.message || 'Login failed';
+    error.value = e.message || 'Login failed. Please try again.';
   } finally {
     loading.value = false;
   }
