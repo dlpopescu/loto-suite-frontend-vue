@@ -44,11 +44,6 @@ export async function send(method, url, body, extraHeaders = {}, authenticate = 
     }
 }
 
-export const normalizeNumber = (value) => {
-  const num = typeof value === 'string' ? parseInt(value) : value
-  return num < 10 ? '0' + num : num.toString()
-}
-
 class HttpResponse {
   constructor(data = {}) {
     this.data = data.data || null;

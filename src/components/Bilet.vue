@@ -86,7 +86,7 @@ function reset() {
   setNorocCastigator(false)
 
   varianteRefs.value.forEach(varianta => {
-    varianta.clearSelections();
+    varianta.clear();
   });
 
   if (norocInputRef.value) {

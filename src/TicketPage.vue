@@ -24,7 +24,17 @@
         <div v-for="(v, i) in drawResult.variante" :key="i" class="result-row">
           <span v-if="i === 0" class="result-label">Numere extrase:</span>
           <span v-else class="result-label placeholder">Numere extrase:</span>
-          <span class="result-value">{{ toNormalizedString(v) }}</span>
+          <span class="result-value">
+            <template v-for="(n, idx) in v.numere" :key="idx">
+              <DataGridCell 
+                :data="n" 
+                :readOnly="true"
+                :style="{
+                  '--dg-cell-border': isJokerGame ? idx === v.numere.length - 1 ? 'var(--color-joker)' : 'var(--color-success-text)' : 'var(--color-success-text)',
+                  '--dg-cell-color': isJokerGame ? idx === v.numere.length - 1 ? 'var(--color-joker)' : 'var(--color-success-text)' : 'var(--color-success-text)'
+                }"/>
+            </template>
+          </span>
         </div>
         <div v-if="drawResult?.noroc" class="result-row">
           <span class="result-label">{{norocGameName}}:</span>
@@ -34,7 +44,7 @@
     </div>
     <Bilet v-if="businessStore.game.id && drawResult"
       class="main-width"
-      style="margin-top: 1px;"
+      style="margin-top: 10px;"
       ref="biletRef"
       @delete="deleteBilet"
       @check="checkBilet"
@@ -57,9 +67,9 @@ import LabeledAmountsGrid from './components/grids/LabeledAmountsGrid.vue'
 import SelectEx from './components/SelectEx.vue'
 import { useBusinessStore } from './stores/business'
 import { useLoadingStore } from './stores/loading.js'
-import { normalizeNumber } from './api/utils.js'
 import { useErrorStore } from './stores/errors.js'
 import { drawService, checkService, scanService } from './services/IocContainer.js';
+import DataGridCell from './components/grids/DataGridCell.vue'
 
 const errorStore = useErrorStore();
 const businessStore = useBusinessStore()
@@ -70,6 +80,8 @@ const selectedGameId = computed({
   get: () => businessStore.selectedGame?.id,
   set: (value) => businessStore.setGameId(value)
 });
+
+const isJokerGame = computed (() => selectedGameId.value === 'joker')
 
 const selectedDateId = computed({
   get: () => businessStore.selectedDate?.date,
@@ -110,10 +122,6 @@ const castiguri = computed(() => {
   return items;
 })
 
-function toNormalizedString(varianta) {
-  return varianta.numere.map(n => normalizeNumber(n)).join(', ');
-}
-
 onMounted(async () => {  
   try{
     if (route.query.from !== 'login') {
@@ -133,17 +141,16 @@ function deleteBilet() {
 
 async function checkBilet(data) {
   try {
-    const isJokerGame = selectedGameId.value === 'joker'
     let variante = [];
 
     data.variants.forEach(variant => {
       let numbers = [...(variant.numbers || [])];
-      let canUseVariant = isJokerGame 
+      let canUseVariant = isJokerGame.value 
         ? numbers.length >= businessStore.game.numerePerVariantaExtrasa - 1
         : numbers.length >= businessStore.game.numerePerVariantaExtrasa;
 
       if (canUseVariant) {
-        if (isJokerGame && variant.joker) {
+        if (isJokerGame.value && variant.joker) {
           numbers.push(variant.joker);
         }
 
@@ -169,7 +176,7 @@ async function checkBilet(data) {
             biletRef.value?.highlightNumber(
               idVarianta, 
               n.numar, 
-              isJokerGame && indexNumar === v.numere.length - 1);
+              isJokerGame.value && indexNumar === v.numere.length - 1);
         }
       });
     });
@@ -285,12 +292,12 @@ async function refreshData() {
 }
 
 .no-results {
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-regular);
   padding: 6px 0;
 }
 
 .draw-results {
-  font-size: var(--font-size-small);
+  font-size: 0.9em;
   font-family: 'Nunito', sans-serif;
 }
 
@@ -306,10 +313,16 @@ async function refreshData() {
 
 .result-value {
   word-break: break-word;
+  display: flex;
+  gap: 4px;
+}
+
+.result-last {
+  color: var(--color-joker);
 }
 
 .result-label.placeholder {
-  visibility: hidden; /* keeps width but hides text */
+  visibility: hidden;
 }
 
 </style>

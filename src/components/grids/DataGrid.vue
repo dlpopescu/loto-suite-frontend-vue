@@ -1,19 +1,19 @@
 <template>
   <div :style="gridStyle">
-    <GridCell 
+    <DataGridCell 
       v-for="item in props.data"
-      :key="item"
+      :key="item?.id ?? item"
       :data="item"
-      :isSelected="internalSelected.includes(item)"
-      :isHighlighted="internalHighlighted.includes(item)"
-      :styling="props.styling"
-      @click="toggleSelected(item)"/>
+      :isSelected="!props.readOnly && selectedCells.includes(item)"
+      :isHighlighted="!props.readOnly && highlightedCells.includes(item)"
+      :readOnly="props.readOnly"
+      @click="!props.readOnly && toggleSelected(item)"/>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import GridCell from './GridCell.vue'
+import DataGridCell from './DataGridCell.vue'
 
 const props = defineProps({
   data: {
@@ -28,16 +28,16 @@ const props = defineProps({
     type: Number,
     default: undefined
   },
-  styling: {
-    type: Object,
-    default: () => ({})
-  }
+  readOnly: {
+    type: Boolean,
+    default: false
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
 
-const internalSelected = ref([])
-const internalHighlighted = ref([])
+const selectedCells = ref([])
+const highlightedCells = ref([])
 
 const gridStyle = computed(() => ({
   display: 'grid',
@@ -47,35 +47,35 @@ const gridStyle = computed(() => ({
   maxWidth: 'max-content'
 }))
 
-function toggleSelected(item) {
-  const index = internalSelected.value.indexOf(item)
+function toggleSelected(cell) {
+  highlightedCells.value = []
+
+  const index = selectedCells.value.indexOf(cell)
   
   if (index > -1) {
-    internalSelected.value.splice(index, 1)
-  } else {
-    if (internalSelected.value.length < props.maxSelectionCount) {
-      internalSelected.value.push(item)
-    } else if (props.maxSelectionCount === 1) {
-      internalSelected.value = [item]
-    }
+    selectedCells.value.splice(index, 1)
+  } else if (props.maxSelectionCount == 1) {
+    selectedCells.value = [cell]
+  } else if (selectedCells.value.length < props.maxSelectionCount) {
+    selectedCells.value.push(cell)
   }
   
-  emit('update:modelValue', [...internalSelected.value])
+  emit('update:modelValue', [...selectedCells.value])
 }
 
-function clearSelections() {
-  internalSelected.value = []
-  internalHighlighted.value = []
+function clear(){
+  selectedCells.value = [];
+  highlightedCells.value = [];
 }
 
 function highlightCell(number) {
-  if (!internalHighlighted.value.includes(number)) {
-    internalHighlighted.value.push(number)
+  if (!highlightedCells.value.includes(number)) {
+    highlightedCells.value.push(number);
   }
 }
 
 defineExpose({
-  clearSelections,
+  clear,
   highlightCell
 })
 

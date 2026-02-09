@@ -9,17 +9,17 @@
                 v-model="selectedVariantNumbers"
                 :data="availableVariantNumbers"
                 :maxSelectionCount="maxSelectionCountVarianta"
-                :styling="{
-                    selected: {
-                        borderColor: 'var(--color-main)',
-                        backgroundColor: 'var(--color-main)',
-                        textColor: 'var(--color-white)'
-                        },
-                    highlight: {
-                        borderColor: 'var(--color-success-text)',
-                        backgroundColor: 'var(--color-success-text)',
-                        textColor: 'var(--color-white)'
-                        }
+                :readOnly="false"
+                :style="{                    
+                    '--dg-cell-border': 'var(--color-text-primary)',
+                    '--dg-cell-bg': 'var(--color-white)',
+                    '--dg-cell-color': 'var(--color-text-primary)',
+                    '--dg-cell-selected-border': 'var(--color-main)',
+                    '--dg-cell-selected-bg': 'var(--color-main)',
+                    '--dg-cell-selected-color': 'var(--color-white)',
+                    '--dg-cell-highlight-border': 'var(--color-success-text)',
+                    '--dg-cell-highlight-bg': 'var(--color-success-text)',
+                    '--dg-cell-highlight-color': 'var(--color-white)',
                 }"/>
             <DataGrid 
                 v-if="isJokerGame"
@@ -27,22 +27,17 @@
                 v-model="selectedJokerNumbers"
                 :data="availableJokerNumbers"
                 :maxSelectionCount="1"
-                :styling="{
-                    regular: {
-                        borderColor: 'var(--color-joker)',
-                        backgroundColor: 'var(--color-white)',
-                        textColor: 'var(--color-joker)'
-                    },
-                    selected: {
-                        borderColor: 'var(--color-joker)',
-                        backgroundColor: 'var(--color-joker)',
-                        textColor: 'var(--color-white)'
-                    },
-                    highlight: {
-                        borderColor: 'var(--color-success-text)',
-                        backgroundColor: 'var(--color-success-text)',
-                        textColor: 'var(--color-white)'
-                    }
+                :readOnly="false"
+                :style="{
+                    '--dg-cell-border': 'var(--color-joker)',
+                    '--dg-cell-bg': 'var(--color-white)',
+                    '--dg-cell-color': 'var(--color-joker)',
+                    '--dg-cell-selected-border': 'var(--color-joker)',
+                    '--dg-cell-selected-bg': 'var(--color-joker)',
+                    '--dg-cell-selected-color': 'var(--color-white)',
+                    '--dg-cell-highlight-border': 'var(--color-success-text)',
+                    '--dg-cell-highlight-bg': 'var(--color-success-text)',
+                    '--dg-cell-highlight-color': 'var(--color-white)',
                 }"/>
         </div>
     </div>
@@ -57,7 +52,7 @@ const props = defineProps({
 })
 
 defineExpose({
-  clearSelections,
+  clear,
   highlightNumber,
 })
 
@@ -100,11 +95,11 @@ function emitSelections() {
         })
 }
 
-function clearSelections(){
-    numereGridRef.value?.clearSelections();  
+function clear(){
+    numereGridRef.value?.clear();  
     selectedVariantNumbers.value = []
 
-    jokerGridRef.value?.clearSelections(); 
+    jokerGridRef.value?.clear(); 
     selectedJokerNumbers.value = [] 
 }
 
