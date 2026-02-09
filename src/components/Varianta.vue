@@ -4,13 +4,10 @@
             {{String.fromCharCode(64 + id)}}
         </span>
         <div class="varianta-grids">
-            <NumberGrid 
+            <DataGrid 
                 ref="numereGridRef"
-                :variantId="id"
-                v-model="selectedNumbers"
-                :minValue="minNumarVarianta"
-                :maxValue="maxNumarVarianta"
-                :colCount="gridColumnCount"
+                v-model="selectedVariantNumbers"
+                :data="availableVariantNumbers"
                 :maxSelectionCount="maxSelectionCountVarianta"
                 :styling="{
                     selected: {
@@ -24,15 +21,12 @@
                         textColor: 'var(--color-white)'
                         }
                 }"/>
-            <NumberGrid 
+            <DataGrid 
                 v-if="isJokerGame"
                 ref="jokerGridRef"
                 v-model="selectedJokerNumbers"
-                :variantId="id"
-                :minValue="minNumarJoker"
-                :maxValue="maxNumarJoker"
-                :colCount="gridColumnCount"
-                :maxSelectionCount="maxSelectionCountJoker"
+                :data="availableJokerNumbers"
+                :maxSelectionCount="1"
                 :styling="{
                     regular: {
                         borderColor: 'var(--color-joker)',
@@ -63,35 +57,36 @@ const props = defineProps({
 })
 
 defineExpose({
-  clearSelections
+  clearSelections,
+  highlightNumber,
 })
 
 import { computed, ref, watch } from 'vue'
-import { useBusinessStore } from '../stores/business_store'
-import NumberGrid from './NumberGrid.vue'
+import { useBusinessStore } from '../stores/business'
+import DataGrid from './grids/DataGrid.vue'
 
 const businessStore = useBusinessStore()
 
-const selectedGame = computed(() => businessStore.selectedGame || {})
-const isJokerGame = computed(() => selectedGame.value.id === 'joker')
-const minNumarVarianta = computed(() =>  selectedGame.value.min_value_numar_varianta || 1)
-const maxNumarVarianta = computed(() =>  selectedGame.value.max_value_numar_varianta || 49)
-const minNumarJoker = computed (() => 1)
-const maxNumarJoker = computed (() => 20)
-const maxSelectionCountVarianta = computed (() => maxNumarVarianta.value - 1)
-const maxSelectionCountJoker = computed (() => 1)
-const gridColumnCount = computed( () => 10)
+const isJokerGame = computed(() => businessStore.game.id === 'joker')
+const maxSelectionCountVarianta = computed(() => businessStore.game.variantMaxNumber - 1)
 
 const numereGridRef = ref(null)
-const jokerGridRef = ref(null)
+const selectedVariantNumbers = ref([])
+const availableVariantNumbers = computed(() => 
+  {
+    const len = businessStore.game.variantMaxNumber - businessStore.game.variantMinNumber + 1
+    return Array.from({ length: len }, (_, i) => i + businessStore.game.variantMinNumber)
+  }
+)
 
-const selectedNumbers = ref([])
+const jokerGridRef = ref(null)
 const selectedJokerNumbers = ref([])
+const availableJokerNumbers = computed(() => Array.from({ length: 20 }, (_, i) => i + 1))
 
 const emit = defineEmits(['update-selection'])
 
 watch(
-  [selectedNumbers, selectedJokerNumbers],
+  [selectedVariantNumbers, selectedJokerNumbers],
   emitSelections
 );
 
@@ -99,20 +94,23 @@ function emitSelections() {
     emit(
         'update-selection', 
         {
-            variant_id: props.id,
-            numbers: selectedNumbers.value.slice().sort((a, b) => a - b),
-            joker : (isJokerGame.value && selectedJokerNumbers.value.length > 0) ? selectedJokerNumbers.value[0] : null
+            id: props.id,
+            numbers: selectedVariantNumbers.value.slice(),
+            joker : (isJokerGame.value && selectedJokerNumbers.value?.length == 1) ? selectedJokerNumbers.value?.[0] : null
         })
 }
 
 function clearSelections(){
-    if (numereGridRef.value) {
-      numereGridRef.value.clearSelections();  
-    }
+    numereGridRef.value?.clearSelections();  
+    selectedVariantNumbers.value = []
 
-    if (isJokerGame.value && jokerGridRef.value) {
-      jokerGridRef.value.clearSelections();  
-    }
+    jokerGridRef.value?.clearSelections(); 
+    selectedJokerNumbers.value = [] 
+}
+
+function highlightNumber(numar, isJokerNumber) {
+    const gridRef = isJokerNumber ? jokerGridRef : numereGridRef;
+    gridRef.value?.highlightCell(numar);
 }
 
 </script>

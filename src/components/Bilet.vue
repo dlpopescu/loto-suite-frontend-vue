@@ -1,9 +1,7 @@
 <template>
     <div class="bilet">
       <div class="bilet-variante">
-        <Varianta 
-          v-for="n in numarVariante" 
-          :id="n" 
+        <Varianta v-for="id in numarVariante" :id="id" :key="id" 
           @update-selection="doOnVariantSelectionsUpdated"
           ref="varianteRefs" />
       </div>
@@ -46,28 +44,24 @@
 
 <script setup>
   
-import { ref, computed, onMounted, watch } from 'vue'
-import { useBusinessStore } from '../stores/business_store'
-import { isFunction } from '../utils/utils'
+import { ref, computed, onMounted } from 'vue'
+import { useBusinessStore } from '../stores/business'
 import Varianta from './Varianta.vue'
 
 const businessStore = useBusinessStore()
 const norocInputRef = ref(null)
-const ticketSelections = ref([])
+const variantSelections = ref([])
 const norocCastigator = ref(false)
 const varianteRefs = ref([]);
-// const matchingNumbers = ref([])
-// const matchingJokerNumbers = ref([])
 
-const selectedGame = computed(() => businessStore.selectedGame || {})
-const norocGameName = computed(() => selectedGame.value.nume_noroc || 'NOROC')
-const norocLen = computed(() => selectedGame.value.numar_cifre_noroc || 7)
-const numarVariante = computed(() =>  selectedGame.value.numar_max_variante || 1)
+const norocGameName = computed(() => businessStore.game.numeNoroc || 'NOROC')
+const norocLen = computed(() => businessStore.game.numarNorocLen || 7)
+const numarVariante = computed(() =>  businessStore.game.variantsMaxCount || 1)
 
 const emit = defineEmits(['check', 'delete', 'scan'])
 
 defineExpose({
-  // highlightNumbers,
+  highlightNumber,
   setNorocCastigator,
   reset
 })
@@ -76,36 +70,28 @@ onMounted(() => {
   reset()
 })
 
-watch(() =>  businessStore.gameId, (newGameId, oldGameId) => {
-  if (newGameId && newGameId !== oldGameId) {
-      reset()
-    }
-}, { immediate: true })
-
 function setNorocCastigator(isWinner) {
   norocCastigator.value = isWinner
 }
 
-// function highlightNumbers(mainNumbers, jokerNumbers) {
-//   matchingNumbers.value = mainNumbers || []
-//   matchingJokerNumbers.value = jokerNumbers || []
-// }
+function highlightNumber(indexVarianta, numar, isNumarJoker) {
+  const variantaComponent = varianteRefs.value[indexVarianta];
+  if (variantaComponent) {
+    variantaComponent.highlightNumber(numar, isNumarJoker);
+  }
+}
 
 function reset() {
-  ticketSelections.value = []
-  norocCastigator.value = false
+  variantSelections.value = []
+  setNorocCastigator(false)
 
   varianteRefs.value.forEach(varianta => {
-    if (varianta && isFunction(varianta.clearSelections)) {
-      varianta.clearSelections();
-    }
+    varianta.clearSelections();
   });
 
   if (norocInputRef.value) {
     norocInputRef.value.value = '';
   }
-
-  // highlightNumbers(null, null);
 }
 
 function stergeBilet() {
@@ -122,7 +108,7 @@ function verificaBilet() {
   emit(
     'check', 
     {
-      variants: ticketSelections.value,
+      variants: variantSelections.value,
       noroc: norocInputRef.value.value
     })
 }
@@ -130,16 +116,16 @@ function verificaBilet() {
 function onNorocInput(e) {
   const val = e.target.value.replace(/[^0-9]/g, '');
   norocInputRef.value.value = val;
-  norocCastigator.value = false;
+  setNorocCastigator(false);
 }
 
 function doOnVariantSelectionsUpdated(selections) {
-  const idx = ticketSelections.value.findIndex(s => s.variant_id === selections.variant_id);
+  const idx = variantSelections.value.findIndex(s => s.id === selections.id);
 
   if (idx !== -1) {
-    ticketSelections.value[idx] = selections;
+    variantSelections.value[idx] = selections;
   } else {
-    ticketSelections.value.push(selections);
+    variantSelections.value.push(selections);
   }
 }
 

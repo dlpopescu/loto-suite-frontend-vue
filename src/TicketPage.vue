@@ -1,40 +1,38 @@
 <template>
   <div class="container">
-    <table class="main-width" style="margin-top: 10px;">
-      <tbody style="font-size: var(--font-size-regular);">
-        <tr>
-          <td colspan="6" style="text-align: center;font-weight: 600;color: var(--color-success-text);letter-spacing: 0.03em; ">Joc / Data tragere:</td>
-        </tr>
-        <tr>
-          <td colspan="6">
-            <SelectEx 
-              v-model="businessStore.gameId" :dataSet="businessStore.games" 
-              keyProp="id" valueProp="id" displayProp="display_name"
-              :emits="['game-changed']" @game-changed="onGameChanged"/>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="6">
-            <SelectEx 
-              v-model="businessStore.dateId" :dataSet="businessStore.dates" 
-              keyProp="date" valueProp="date" displayProp="label"
-              :emits="['date-changed']" @date-changed="onDateChanged"/>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="6">
-            <div class="pre-rezultate">
-              <pre v-if="!hasDrawResults()">Nu exista rezultate pentru data selectata.</pre>
-              <pre v-if="hasDrawResults()">Rezultate extragere:</pre>
-              <pre v-if="hasRezultateVarianta">Numere: {{numereExtraseVarianta}}</pre>
-              <pre v-if="hasRezultateVariantaSpeciala">Numere (varianta speciala): {{numereExtraseVariantaSpeciala}}</pre>
-              <pre v-if="drawResult?.noroc">{{norocGameName}}: {{drawResult?.noroc?.numar}}</pre>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table> 
-    <Bilet v-if="businessStore.gameId && hasDrawResults()"
+    <div class="main-width ticket-panel">
+      <div class="ticket-header">Joc / Data tragere:</div>
+      <div class="ticket-field">
+        <SelectEx :disabled="isLoading" 
+          v-model="selectedGameId" :dataSet="businessStore.games" 
+          keyProp="id" valueProp="id" displayProp="displayName"
+          :emits="['game-changed']" @game-changed="onGameChanged"/>
+      </div>
+      <div class="ticket-field">
+        <SelectEx :disabled="isLoading" 
+          v-model="selectedDateId" :dataSet="businessStore.dates" 
+          keyProp="date" valueProp="date" displayProp="displayDate"
+          :emits="['date-changed']" @date-changed="onDateChanged"/>
+      </div>
+      <div v-if="isLoading" class="loading-section">
+        <span class="spinner-blue" aria-hidden="true"></span>
+      </div>
+      <div v-if="!isLoading && !drawResult" class="no-results">
+        Nu exista rezultate pentru data selectata.
+      </div>
+      <div v-if="!isLoading && drawResult" class="draw-results">
+        <div v-for="(v, i) in drawResult.variante" :key="i" class="result-row">
+          <span v-if="i === 0" class="result-label">Numere extrase:</span>
+          <span v-else class="result-label placeholder">Numere extrase:</span>
+          <span class="result-value">{{ toNormalizedString(v) }}</span>
+        </div>
+        <div v-if="drawResult?.noroc" class="result-row">
+          <span class="result-label">{{norocGameName}}:</span>
+          <span class="result-value">{{drawResult?.noroc?.numar}}</span>
+        </div>
+      </div>
+    </div>
+    <Bilet v-if="businessStore.game.id && drawResult"
       class="main-width"
       style="margin-top: 1px;"
       ref="biletRef"
@@ -42,80 +40,87 @@
       @check="checkBilet"
       @scan="scanBilet"
     />  
-    <input type="file" ref="fileInputRef" style="display:none" @change="onFileChange" />
-    <Castiguri 
-      v-if="(checkResult?.castiguri_total ?? 0) > 0"
-      class="main-width"
-      style="margin-top: 10px;"
-      :castiguriVarianta="castiguriVarianta" 
-      :castiguriVariantaSpeciala="castiguriVariantaSpeciala" 
-      :castiguriNoroc="castiguriNoroc" 
-      :norocGameName="`${businessStore.selectedGame.nume_noroc}`" /> 
+    <!-- <input type="file" ref="fileInputRef" style="display:none" @change="onFileChange" /> -->
+    <LabeledAmountsGrid 
+      v-if="checkResult" :items="castiguri" 
+      class="main-width" style="margin-top: 10px;" 
+    /> 
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import Bilet from './components/Bilet.vue'
-import Castiguri from './components/Castiguri.vue'
+import LabeledAmountsGrid from './components/grids/LabeledAmountsGrid.vue'
 import SelectEx from './components/SelectEx.vue'
-import { checkNumbers, getDrawResults, scanTicket } from './api/business.js'
-import { computed } from 'vue'
-import { useBusinessStore } from './stores/business_store.js'
-import { normalizeNumber } from './utils/utils.js'
-import { useErrorStore } from './stores/error_store.js';
+import { useBusinessStore } from './stores/business'
+import { useLoadingStore } from './stores/loading.js'
+import { normalizeNumber } from './api/utils.js'
+import { useErrorStore } from './stores/errors.js'
+import { drawService, checkService, scanService } from './services/IocContainer.js';
 
-const businessStore = useBusinessStore()
 const errorStore = useErrorStore();
+const businessStore = useBusinessStore()
+
+const norocGameName = computed(() => businessStore.selectedGame?.numeNoroc || 'NOROC')
+
+const selectedGameId = computed({
+  get: () => businessStore.selectedGame?.id,
+  set: (value) => businessStore.setGameId(value)
+});
+
+const selectedDateId = computed({
+  get: () => businessStore.selectedDate?.date,
+  set: (value) => businessStore.setDate(value)
+});
+
+const loadingStore = useLoadingStore();
+const { isLoading } = storeToRefs(loadingStore);
+
 const route = useRoute();
 
 const biletRef = ref(null)
 const fileInputRef = ref(null)
-
 const drawResult = ref(null);
 const checkResult = ref(null);
 const scanResult = ref(null);
-
 const norocValue = ref('')
 
-const castiguriVarianta = ref([])
-const castiguriVariantaSpeciala = ref([])
-const castiguriNoroc = ref([])
+const castiguri = computed(() => {
+  const castiguriVariante = checkResult.value?.varianteJucate
+    ? checkResult.value.varianteJucate.flatMap(v => v.castiguri || [])
+    : []
 
-const isJokerGame = computed(() => businessStore.gameId.toLowerCase() === 'joker')
-const norocGameName = computed(() => businessStore.selectedGame?.nume_noroc || 'NOROC')
+  const totalVariante = castiguriVariante.reduce((total, castig) => {
+    return total + (castig?.valoare ?? 0)
+  }, 0)
 
-const hasRezultateVarianta = computed(() => drawResult.value?.varianta && drawResult.value.varianta.id !== -1)
-const numereExtraseVarianta = computed(() => {
-  const numbers = [];
-  if (hasRezultateVarianta.value) {
-    drawResult.value.varianta.numere.forEach(n => numbers.push(normalizeNumber(n.numar)));
-  }
+  const castiguriNoroc = checkResult.value?.norocJucat?.castiguri || []
+  const totalNoroc = castiguriNoroc.reduce((total, castig) => {
+    return total + (castig?.valoare ?? 0)
+  }, 0)
 
-  return numbers.join(', ');
-});
+  const items = [
+    { label: 'Castiguri variante', amount: totalVariante },
+    { label: `Castiguri ${norocGameName.value}`, amount: totalNoroc }
+  ]
 
-const hasRezultateVariantaSpeciala = computed(() => drawResult.value?.varianta_speciala && drawResult.value.varianta_speciala.id !== -1)
-const numereExtraseVariantaSpeciala = computed(() => {
-  const numbers = [];
-  if (hasRezultateVariantaSpeciala.value) {
-    drawResult.value.varianta_speciala.numere.forEach(n => numbers.push(normalizeNumber(n.numar)));
-  }
+  return items;
+})
 
-  return numbers.join(', ');
-});
-
-const hasCastiguriNoroc = computed (() => castiguriNoroc.value && castiguriNoroc.value.some(c => c.win_count > 0));
+function toNormalizedString(varianta) {
+  return varianta.numere.map(n => normalizeNumber(n)).join(', ');
+}
 
 onMounted(async () => {  
   try{
     if (route.query.from !== 'login') {
-      await businessStore.fetchGames();
-      await businessStore.fetchDates(30);
+      await businessStore.init();
     }
 
-    await fetchDrawResults();
+    await refreshData();
   } catch (err) {
     errorStore.showError(err.message || 'Initialization error');
   }
@@ -124,97 +129,54 @@ onMounted(async () => {
 function deleteBilet() {
   scanResult.value = null;
   checkResult.value = null;
-  resetCastiguriToDefault();
-}
-
-function resetCastiguriToDefault() {
-  if (castiguriVarianta.value.length > 0) {
-    castiguriVarianta.value = castiguriVarianta.value.map(castig => ({
-      ...castig,
-      win_count: 0
-    }));
-  }
-  
-  if (castiguriVariantaSpeciala.value.length > 0) {
-    castiguriVariantaSpeciala.value = castiguriVariantaSpeciala.value.map(castig => ({
-      ...castig,
-      win_count: 0
-    }));
-  }
-  
-  if (castiguriNoroc.value.length > 0) {
-    castiguriNoroc.value = castiguriNoroc.value.map(castig => ({
-      ...castig,
-      win_count: 0
-    }));
-  }
 }
 
 async function checkBilet(data) {
   try {
-    let checkData = [];
+    const isJokerGame = selectedGameId.value === 'joker'
+    let variante = [];
 
     data.variants.forEach(variant => {
       let numbers = [...(variant.numbers || [])];
-      if (isJokerGame.value && variant.joker) {
-        numbers.push(variant.joker);
-      }
+      let canUseVariant = isJokerGame 
+        ? numbers.length >= businessStore.game.numerePerVariantaExtrasa - 1
+        : numbers.length >= businessStore.game.numerePerVariantaExtrasa;
 
-      checkData.push({
-        id: variant.variant_id,
-        numere: numbers.map(num => ({ numar: num }))
+      if (canUseVariant) {
+        if (isJokerGame && variant.joker) {
+          numbers.push(variant.joker);
+        }
+
+        variante.push({
+          id: variant.id,
+          numere: numbers.map(num => ({ numar: num }))
+        });
+      }
+    });
+
+    const result = await checkService.checkNumbers(
+      businessStore.selectedGame.id,
+      variante,
+      data.noroc,
+      businessStore.selectedDate.date
+    );
+
+    checkResult.value = result;
+
+    result.varianteJucate.forEach((v, idVarianta) => {
+      v.numere.forEach((n, indexNumar) => {
+        if (n.castigator) {
+            biletRef.value?.highlightNumber(
+              idVarianta, 
+              n.numar, 
+              isJokerGame && indexNumar === v.numere.length - 1);
+        }
       });
     });
 
-    const result = await checkNumbers(
-      businessStore.gameId,
-      checkData,
-      data.noroc,
-      businessStore.dateId
-    );
-
-    console.log('Check result:', result);
-
-    castiguriVarianta.value = result.castiguri_varianta || []
-    castiguriVariantaSpeciala.value = result.castiguri_varianta_speciala || []
-    castiguriNoroc.value = result.castiguri_noroc || []
-
-    // const matching = [];
-    // const matchingJokers = [];
-
-    // if (result.variante_jucate && result.variante_jucate.length > 0) {
-    //   result.variante_jucate.forEach((variant, variantIndex) => {
-    //     const matchedNumbers = [];
-    //     const matchedJokerNumbers = [];
-
-    //     if (variant.numere && variant.numere.length > 0) {
-    //       variant.numere.forEach((numar, index) => {
-    //         if (numar.castigator) {
-    //           if (isJokerGame) {
-    //             const isJokerNumber = index === variant.numere.length - 1;
-    //             if (isJokerNumber) {
-    //               matchedJokerNumbers.push(numar.numar);
-    //             } else {
-    //               matchedNumbers.push(numar.numar);
-    //             }
-    //           } else {
-    //             matchedNumbers.push(numar.numar);
-    //           }
-    //         }
-    //       });
-    //     }
-        
-    //     matching[variantIndex] = matchedNumbers;
-    //     matchingJokers[variantIndex] = matchedJokerNumbers;
-    //   });
-    // }
-
     if (biletRef.value) {
-      // biletRef.value.highlightNumbers(matching, matchingJokers);
-      biletRef.value.setNorocCastigator(hasCastiguriNoroc.value);
+      biletRef.value.setNorocCastigator(result.norocJucat.castigator);
     }
-
-    checkResult.value = result;
   } catch (err) {
     console.error('error:', err.message || err)
   }
@@ -234,7 +196,7 @@ function onFileChange(e) {
   reader.onload = async function(event) {
     const arrayBuffer = event.target.result;
     try {
-      const result = await scanTicket(businessStore.gameId, arrayBuffer);
+      const result = await scanService.scanTicket(businessStore.selectedGame.id, arrayBuffer);
       console.log('Scan result: ', result);
       scanResult.value = result;
       norocValue.value = scanResult?.value.noroc?.numar || '';
@@ -255,62 +217,31 @@ async function onGameChanged() {
 
   scanResult.value = null;
   checkResult.value = null;
-  await fetchDrawResults();
+  await refreshData();
 }
 
 async function onDateChanged() {
   scanResult.value = null;
   checkResult.value = null;
-  await fetchDrawResults();
+  await refreshData();
 }
 
-async function fetchDrawResults() {
-    const gameId = businessStore.gameId.trim();
-    if (!gameId) return;
+async function refreshData() {
+  const gameId = businessStore.selectedGame?.id;
+  const date = businessStore.selectedDate?.date;
 
-    const dateId = businessStore.dateId.trim();
-    if (!dateId) return;
+  if (!gameId || !date) {
+    drawResult.value = null;
+    return;
+  }
 
   try {
-
-    const result = await getDrawResults(gameId, dateId);
-    
-    const variantaLength = result.varianta?.numere?.length || 0;
-    if (variantaLength > 0) {
-      if (isJokerGame) {
-        const mainNumbers = result.varianta.numere.slice(0, 5);
-        const jokerNumber = result.varianta.numere.slice(5);
-        mainNumbers.sort((a, b) => a.numar - b.numar);
-        result.varianta.numere = [...mainNumbers, ...jokerNumber];
-      } else {
-        result.varianta.numere.sort((a, b) => a.numar - b.numar);
-      }
-    }
-    
-    const variantaSpecialaLength = result.varianta_speciala?.numere?.length || 0;
-    if (variantaSpecialaLength > 0) {
-      if (isJokerGame) {
-        const mainNumbers = result.varianta_speciala.numere.slice(0, 5);
-        const jokerNumber = result.varianta_speciala.numere.slice(5);
-        mainNumbers.sort((a, b) => a.numar - b.numar);
-        result.varianta_speciala.numere = [...mainNumbers, ...jokerNumber];
-      } else {
-        result.varianta_speciala.numere.sort((a, b) => a.numar - b.numar);
-      }
-    }
-
-    drawResult.value = result;
+    const draw = await drawService.getDrawForDate(gameId, date);
+    drawResult.value = draw;
   } catch (err) {
-    errorStore.showError(err.message || 'Failed to fetch draw results');
+    drawResult.value = null;
+    errorStore.showError(err.message || 'failed to fetch draw results');
   }
-}
-
-function hasDrawResults() {
-  if (!drawResult.value) return false;
-  
-  const variantaLength = drawResult.value?.varianta?.numere?.length || 0;
-  const variantaSpecialaLength = drawResult.value?.varianta_speciala?.numere?.length || 0;
-  return  variantaLength > 0 ||variantaSpecialaLength > 0;
 }
 
 </script>
@@ -332,11 +263,53 @@ function hasDrawResults() {
     height: auto;
 }
 
-.pre-rezultate pre {
-  margin: 4px 0;
-  font-family: 'Nunito', sans-serif;
+.ticket-panel {
+  margin-top: 10px;
+}
+
+.ticket-header {
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  font-size: var(--font-size-regular);
+  margin-bottom: 10px;
+}
+
+.ticket-field {
+  margin-bottom: 8px;
+}
+
+.loading-section {
+  text-align: center;
+  padding: 6px 0;
+}
+
+.no-results {
   font-size: var(--font-size-small);
-  border: 1px solid var(--color-border);
+  padding: 6px 0;
+}
+
+.draw-results {
+  font-size: var(--font-size-small);
+  font-family: 'Nunito', sans-serif;
+}
+
+.result-row {
+  display: flex;
+  gap: 4px;
+  padding: 1px 0;
+}
+
+.result-label {
+  min-width: 120px;
+}
+
+.result-value {
+  word-break: break-word;
+}
+
+.result-label.placeholder {
+  visibility: hidden; /* keeps width but hides text */
 }
 
 </style>

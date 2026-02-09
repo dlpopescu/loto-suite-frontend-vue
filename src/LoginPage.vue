@@ -9,39 +9,45 @@
         <label for="password">Password</label>
         <input id="password" type="password" v-model="password" required />
       </div>
-      <button type="submit" :disabled="loading">Login</button>
+      <button type="submit" :disabled="isLoading" class="submit-button">
+        <span v-if="isLoading" class="spinner" aria-hidden="true"></span>
+        <span>{{ isLoading ? 'Logging in...' : 'Login' }}</span>
+      </button>
       <div v-if="error" class="error">{{ error }}</div>
     </form>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
-import { loginUser } from './api/auth.js';
-import { useBusinessStore } from './stores/business_store.js';
+import { authService } from './services/IocContainer.js';
+import { useBusinessStore } from './stores/business';
+import { useLoadingStore } from './stores/loading.js';
 
-const username = ref('');
-const password = ref('');
-const loading = ref(false);
-const error = ref('');
+const username = ref<string>('');
+const password = ref<string>('');
+const error = ref<string>('');
 const router = useRouter();
 const businessStore = useBusinessStore();
 
-async function login() {
-  loading.value = true;
-  error.value = '';
-  try {
-    const response = await loginUser(username.value, password.value);
-    if (!response.ok) throw new Error('Login failed. Please try again.');
+const loadingStore = useLoadingStore();
+const { isLoading } = storeToRefs(loadingStore);
 
-    await businessStore.fetchGames();
-    await businessStore.fetchDates(30);
+async function login(): Promise<void> {
+  error.value = '';
+  loadingStore.start();
+
+  try {
+    await authService.login(username.value, password.value);
+    await businessStore.init();
     router.replace({ name: 'ticket', query: { from: 'login' } });
   } catch (e) {
-    error.value = e.message || 'Login failed. Please try again.';
+    error.value = (e as Error).message;
+    throw e;
   } finally {
-    loading.value = false;
+    loadingStore.stop();
   }
 }
 
@@ -76,6 +82,14 @@ button {
   border: none;
   border-radius: 4px;
   font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.submit-button:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
 }
 .error {
   color: #d32f2f;

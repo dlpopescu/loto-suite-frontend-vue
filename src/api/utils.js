@@ -1,6 +1,8 @@
-import { useTokenStore } from "../stores/token_store";
+import { authService } from "../services/IocContainer.js";
+import router from '../router.js';
+import { useLoadingStore } from '../stores/loading.js';
 
-export const API_BASE = 'https://dlpopescu.ro';
+export const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export function arrayBufferToBase64(buffer) {
     let binary = '';
@@ -12,23 +14,46 @@ export function arrayBufferToBase64(buffer) {
 }
 
 export async function send(method, url, body, extraHeaders = {}, authenticate = false) {
-    const headers = { ...extraHeaders };
+    try {
+        useLoadingStore().start();
 
-    if (authenticate) {
+        const headers = { ...extraHeaders };
+
         try {
-            const token = await useTokenStore().getValidToken();
-            headers['Authorization'] = `Bearer ${token}`;
+            if (authenticate) {
+                const token = await authService.getAuthToken();
+                headers['Authorization'] = `Bearer ${token}`;
+            }
         } catch (error) {
-            console.error('Failed to get valid token:', error);
+            router.replace('/');
             throw error;
         }
+
+        const response = await fetch(url, { method: method, headers: headers, body: body});
+        if (response?.status === 401 || response?.status === 403) {
+            authService.clearToken();
+            router.replace('/');
+        }
+
+        const json = await response.json();
+        return new HttpResponse(json);
+    } catch (error) {
+        throw error;
+    } finally {
+        useLoadingStore().stop();
     }
+}
 
-    const response = await fetch(url, {
-        method: method,
-        headers: headers,
-        body: body
-    });
+export const normalizeNumber = (value) => {
+  const num = typeof value === 'string' ? parseInt(value) : value
+  return num < 10 ? '0' + num : num.toString()
+}
 
-    return response;
+class HttpResponse {
+  constructor(data = {}) {
+    this.data = data.data || null;
+    this.statusCode = data.status_code || 0;
+    this.message = data.message || '';
+    this.ok = data.ok || false;
+  }
 }

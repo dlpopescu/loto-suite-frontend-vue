@@ -9,9 +9,9 @@
 <script setup>
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useErrorStore } from './stores/error_store.js';
-import { useBusinessStore } from './stores/business_store.js';
-import { logoutUser } from './api/auth.js';
+import { useErrorStore } from './stores/errors.js';
+import { useBusinessStore } from './stores/business';
+import { authService } from './services/IocContainer.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -21,7 +21,7 @@ const businessStore = useBusinessStore();
 const showLogout = computed(() => route.name !== 'login');
 
 function logout() {
-  logoutUser();
+  authService.logout();
   businessStore.$reset();
   router.replace({ name: 'login' });
 }
