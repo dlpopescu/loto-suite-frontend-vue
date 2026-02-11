@@ -5,7 +5,23 @@ class AuthToken {
         if (!data) { return; }
 
         this.token = data.token || '';
-        this.refreshToken = data.refresh_token || '';
+        this.refreshToken = new RefreshToken(data.refresh_token || '');
+        this.expiresAt = data.expires_at ? data.expires_at * 1000 : 0;
+    }
+
+    clear(){
+        this.token = '';
+        this.refreshToken = null;
+        this.expiresAt = 0;
+    }
+}
+
+class RefreshToken {
+    constructor(data = {}) {
+        if (!data) { return; }
+
+        this.token = data.token || '';
+        this.username = data.username || '';
         this.expiresAt = data.expires_at ? data.expires_at * 1000 : 0;
     }
 
@@ -41,12 +57,14 @@ export class AuthService {
 
     async logout() {
         try {
-
-            const requestBody = JSON.stringify({ refresh_token: this.authToken.refreshToken });
-            await send(
-                'POST', `${API_BASE}/api/auth/logout`,
-                requestBody, { 'Content-Type': 'application/json' }, 
-                false);
+            const refreshToken = this.authToken?.refreshToken?.token;
+            if (refreshToken) {
+                const requestBody = JSON.stringify({ refresh_token: refreshToken });
+                await send(
+                    'POST', `${API_BASE}/api/auth/logout`,
+                    requestBody, { 'Content-Type': 'application/json' }, 
+                    false);
+            }
         } catch (error) {
             console.error('Logout API call failed:', error);
         } finally {
@@ -56,12 +74,14 @@ export class AuthService {
 
     async refreshToken() {
         try {
-            if (!this.authToken?.refreshToken) {
+            const refreshToken = this.authToken?.refreshToken?.token;
+
+            if (!refreshToken) {
                 this.authToken?.clear();
                 throw new Error('No refresh token available');
             }
 
-            const requestBody = JSON.stringify({ refresh_token: this.authToken.refreshToken });
+            const requestBody = JSON.stringify({ refresh_token: refreshToken });
             const httpResponse = await send(
                 'POST', `${API_BASE}/api/auth/refresh`,
                 requestBody, { 'Content-Type': 'application/json' }, 
